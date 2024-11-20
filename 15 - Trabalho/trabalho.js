@@ -5,7 +5,7 @@ class D3Barras {
     this.categories = [];
     this.categoryProfits = {};
 
-   
+
     this.w = barras.width;
     this.h = barras.height;
     this.margin = barras.margin;  // margens 
@@ -48,7 +48,7 @@ class D3Barras {
       .domain([0, d3.max(Object.values(this.categoryProfits))])
       .range([this.h, 0]);
   }
-  
+
 
   render() {
     // Atualiza ou cria as barras
@@ -64,14 +64,14 @@ class D3Barras {
           .call(enter => enter.transition().duration(500)
             .attr('y', d => this.yScale(this.categoryProfits[d]))
             .attr('height', d => this.h - this.yScale(this.categoryProfits[d]))),
-        
+
         update => update
           .call(update => update.transition().duration(500)
             .attr('x', d => this.xScale(d))
             .attr('y', d => this.yScale(this.categoryProfits[d]))
             .attr('width', this.xScale.bandwidth())
             .attr('height', d => this.h - this.yScale(this.categoryProfits[d]))),
-        
+
         exit => exit
           .call(exit => exit.transition().duration(500)
             .attr('y', this.h)
@@ -91,13 +91,13 @@ class D3Barras {
           .text(d => this.categoryProfits[d].toFixed(2))
           .call(enter => enter.transition().duration(500)
             .attr('y', d => this.yScale(this.categoryProfits[d]) - 5)),
-        
+
         update => update
           .call(update => update.transition().duration(500)
             .attr('x', d => this.xScale(d) + this.xScale.bandwidth() / 2)
             .attr('y', d => this.yScale(this.categoryProfits[d]) - 5)
             .text(d => this.categoryProfits[d].toFixed(2))),
-        
+
         exit => exit.remove()
       );
 
@@ -311,6 +311,8 @@ class Heatmap {
     this.createMargins();
   }
 
+
+
   createSvg() {
     this.svg = d3.select(this.config.div)
       .append("svg")
@@ -323,36 +325,49 @@ class Heatmap {
       .attr("transform", `translate(${this.config.left},${this.config.top})`);
   }
 
+  convertDate(dateStr) {
+    // Verificar se o delimitador é "/" ou "-"
+    const delimiter = dateStr.includes("/") ? "/" : "-";
+
+    // Dividir a data com o delimitador correto
+    const [day, month, year] = dateStr.split(delimiter);
+
+    // Retornar a data formatada como "yyyy-mm-dd"
+    return new Date(`${year}-${month}-${day}`);
+  }
+
   async loadCSV(file) {
     const data = await d3.csv(file);
-    
-    // Verificar se os dados foram carregados corretamente
+
     console.log('Dados carregados:', data);
 
-    // Agrupar por categoria e somar a quantidade utilizando d3.group
-    this.data = Array.from(d3.group(data, d => d.Category), ([key, value]) => ({
-      category: key,
-      quantity: d3.sum(value, d => +d.Quantity)  // Somando as quantidades por categoria
-    }));
+    // Criar uma estrutura de dados apropriada para o heatmap
+    this.data = data.map(d => {
+      const date = this.convertDate(d['Order Date']);
+      const year = date.getFullYear();
+      const quantity = +d.Quantity;
+      return { category: d.Category, year: year, quantity: quantity };
+    });
 
     console.log('Dados processados:', this.data);
 
     // Criar as escalas
     this.createScales();
-    
+
     // Renderizar o gráfico
     this.render();
   }
 
   createScales() {
-    // Obter categorias únicas
-    const categories = this.data.map(d => d.category);
+    // Obter categorias e anos únicos
+    const categories = Array.from(new Set(this.data.map(d => d.category)));
+    const years = Array.from(new Set(this.data.map(d => d.year)));
 
     console.log('Categorias:', categories);
+    console.log('Anos:', years);
 
     // Calcular o valor máximo de Quantity para a escala de cores
     const maxQuantity = d3.max(this.data, d => d.quantity);
-
     console.log('Max Quantity:', maxQuantity);
 
     // Escala para o eixo X (Categorias)
@@ -361,12 +376,13 @@ class Heatmap {
       .range([0, this.config.width])
       .padding(0.05);
 
-    // Escala do eixo Y, mesmo que não seja necessário para linhas, vamos colocar uma unidade para visualização
+    // Escala do eixo Y (Anos)
     this.yScale = d3.scaleBand()
-      .domain([0])  // Apenas uma linha, então o domínio é único
-      .range([0, this.config.height]);
+      .domain(years)
+      .range([0, this.config.height])
+      .padding(0.05);
 
-    // Escala de cor com base no valor de Quantity (cores quentes)
+    // Escala de cor com base no valor de Quantity
     this.colorScale = d3.scaleSequential(d3.interpolateYlOrRd)
       .domain([0, maxQuantity]);
 
@@ -374,56 +390,55 @@ class Heatmap {
   }
 
   render() {
-    // Adicionar o título acima do gráfico
+    // Adicionar o título
     this.svg.append("text")
       .attr("x", this.config.width / 2 + this.config.left)
       .attr("y", this.config.top / 2)
       .attr("text-anchor", "middle")
       .style("font-size", "16px")
       .style("font-weight", "bold")
-      .text("Matriz de Calor: Quantidade por Categoria");
+      .text("Heatmap: Quantidade por Categoria e Ano");
 
     // Gerar as células do gráfico de calor
     this.margins.selectAll('rect')
       .data(this.data)
       .join('rect')
       .attr('x', d => this.xScale(d.category))
-      .attr('y', 0)  // Como temos apenas uma linha (por categoria), Y é sempre 0
-      .attr('width', d => this.xScale.bandwidth())  // Largura da barra
-      .attr('height', this.config.height)  // Altura da célula
+      .attr('y', d => this.yScale(d.year))
+      .attr('width', this.xScale.bandwidth())
+      .attr('height', this.yScale.bandwidth())
       .style('fill', d => this.colorScale(d.quantity))
       .attr('stroke', 'white');
 
     // Adicionar os valores de Quantity dentro das células
-    this.margins.selectAll('text')
-      .data(this.data)
-      .join('text')
-      .attr('x', d => this.xScale(d.category) + this.xScale.bandwidth() / 2)
-      .attr('y', this.config.height / 2)  // Centralizar o texto na altura
-      .attr('text-anchor', 'middle')
-      .attr('dy', '.35em')
-      .style('fill', 'white')
-      .text(d => d.quantity.toFixed(0));  // Exibir quantidade inteira
+    // this.margins.selectAll('text')
+    //   .data(this.data)
+    //   .join('text')
+    //   .attr('x', d => this.xScale(d.category) + this.xScale.bandwidth() / 2)
+    //   .attr('y', d => this.yScale(d.year) + this.yScale.bandwidth() / 2)
+    //   .attr('text-anchor',)
+    //   .attr('dy', '.35em')
+    //   .style('fill', 'black')
+    //   .text(d => d.quantity.toFixed(0));
 
-    // Adicionar o eixo X
+    // Adicionar os eixos X e Y
     this.margins.append("g")
       .attr("transform", `translate(0,${this.config.height})`)
       .call(d3.axisBottom(this.xScale));
 
-    // Adicionar o eixo Y (mesmo que seja uma única linha)
     this.margins.append("g")
-      .call(d3.axisLeft(this.yScale))
-      .style("visibility", "hidden");  // O eixo Y está oculto, pois não é necessário
+      .call(d3.axisLeft(this.yScale));
 
-    // Adicionar legenda "Categorias" abaixo do eixo X
-    this.svg.append("text")
-      .attr("x", this.config.width / 2 + this.config.left)
-      .attr("y", this.config.height + this.config.top + 30)  // Abaixo do eixo X
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .text("Categorias");
+
+
   }
 }
+
+
+
+
+
+
 
 
 
@@ -466,7 +481,7 @@ async function main() {
   let heatmapConfig = { div: '#heatmap', width: 500, height: 300, top: 50, left: 50, bottom: 50, right: 30 };
 
   let heatmap = new Heatmap(heatmapConfig);
-  
+
   try {
     await heatmap.loadCSV('./datasets/superstore.csv');
     heatmap.createScales();
@@ -474,6 +489,8 @@ async function main() {
   } catch (error) {
     console.error('Erro ao carregar ou renderizar o gráfico de calor', error);
   }
+
+
 }
 
 
