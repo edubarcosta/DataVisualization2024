@@ -382,41 +382,36 @@ class Heatmap {
   }
 
   addLegend() {
-    const legendWidth = 300;  // Largura da legenda
-    const legendHeight = 20; // Altura da barra da legenda
-    const padding = 10;      // Espaçamento abaixo do gráfico
+    const legendWidth = 300;  
+    const legendHeight = 20; 
+    const padding = 10;     
   
-    // Escala para a legenda
     const legendScale = d3.scaleLinear()
-      .domain(this.colorScale.domain()) // Mesma escala de valores
-      .range([0, legendWidth]);         // Mapeia para a largura da legenda
+      .domain(this.colorScale.domain())
+      .range([0, legendWidth]);        
   
-    // Adicionando o gradiente ao SVG
     const defs = this.svg.append("defs");
     const linearGradient = defs.append("linearGradient")
       .attr("id", "legend-gradient");
   
     linearGradient.append("stop")
       .attr("offset", "0%")
-      .attr("stop-color", this.colorScale.range()[0]); // Cor inicial da escala
+      .attr("stop-color", this.colorScale.range()[0]); 
   
     linearGradient.append("stop")
       .attr("offset", "100%")
-      .attr("stop-color", this.colorScale.range()[1]); // Cor final da escala
+      .attr("stop-color", this.colorScale.range()[1]); 
   
-    // Adicionando o contêiner da legenda
     const legendGroup = this.margins.append("g")
     .attr("transform", `translate(${(this.config.width - legendWidth) / 2}, ${this.config.height + padding + 20})`);
   
-    // Retângulo com gradiente
     legendGroup.append("rect")
       .attr("width", legendWidth)
       .attr("height", legendHeight)
       .style("fill", "url(#legend-gradient)");
-  
-    // Eixo da legenda
+
     const legendAxis = d3.axisBottom(legendScale)
-      .ticks(5); // Ajuste o número de ticks conforme necessário
+      .ticks(5); 
   
     legendGroup.append("g")
       .attr("transform", `translate(0, ${legendHeight})`)
@@ -492,10 +487,6 @@ class Heatmap {
   
 }
 
-
-
-
-
 async function main() {
   // Gráfico de barras
   let bc = { div: '#barChart', width: 450, height: 250, margin: { top: 50, right: 50, bottom: 50, left: 70 } };
@@ -537,8 +528,6 @@ async function main() {
 
 
 }
-
-
 
 
 main();
